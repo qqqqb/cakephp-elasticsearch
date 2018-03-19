@@ -1,3 +1,6 @@
+# Before you pull
+This version is for development purpose and not stable for deploying use.
+
 # ElasticSearch Datasource for CakePHP
 
 [![Build Status](https://api.travis-ci.org/cakephp/elastic-search.png)](https://travis-ci.org/cakephp/elastic-search)
@@ -71,7 +74,7 @@ $comments = TypeRegistry::get('Comments');
 
 ## Delete by Query Plugin (ElasticSearch 1.x => 2.x)
 
-To be able to delete records via criteria other than `_id` you need the ElasticSearch [delete-by-query plugin](https://www.elastic.co/guide/en/elasticsearch/plugins/2.2/plugins-delete-by-query.html). 
+To be able to delete records via criteria other than `_id` you need the ElasticSearch [delete-by-query plugin](https://www.elastic.co/guide/en/elasticsearch/plugins/2.2/plugins-delete-by-query.html).
 
 _NOTE: Without the plugin you will get at least 2 test failures_
 
