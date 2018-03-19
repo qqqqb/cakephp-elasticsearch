@@ -39,6 +39,13 @@ class Connection extends Client implements ConnectionInterface
     protected $configName = '';
 
     /**
+     * The type name in the connection manager.
+     *
+     * @var string
+     */
+    protected $configType = '';
+
+    /**
      * Constructor. Appends the default index name to the config array, which by default
      * is `_all`
      *
@@ -51,6 +58,10 @@ class Connection extends Client implements ConnectionInterface
         $config += ['index' => '_all'];
         if (isset($config['name'])) {
             $this->configName = $config['name'];
+        }
+        $config += ['type' => '_doc'];
+        if (isset($config['type'])) {
+            $this->configName = $config['type'];
         }
         if (isset($config['log'])) {
             $this->logQueries((bool)$config['log']);
@@ -75,6 +86,14 @@ class Connection extends Client implements ConnectionInterface
     public function configName()
     {
         return $this->configName;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function configType()
+    {
+        return $this->configType;
     }
 
     /**
