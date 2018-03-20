@@ -33,7 +33,6 @@ use Elastica\Document as ElasticaDocument;
 use Elastica\Exception\NotFoundException;
 use InvalidArgumentException;
 
-
 /**
  * Base class for mapping types in indexes.
  *
@@ -90,6 +89,13 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
     protected $_alias;
 
     /**
+     * BehaviorRegistry for this table
+     *
+     * @var \Cake\Elasticsearch\BehaviorRegistry
+     */
+    protected $_behaviors;
+
+    /**
      * The name of the class that represent a single document for this type
      *
      * @var string
@@ -137,11 +143,18 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
         if (!empty($config['connection'])) {
             $this->connection($config['connection']);
         }
+
+        if (!empty($config['behaviors'])) {
+            $behaviors = $config['behaviors'];
+        }
+
         $eventManager = null;
         if (isset($config['eventManager'])) {
             $eventManager = $config['eventManager'];
         }
         $this->_eventManager = $eventManager ?: new EventManager();
+        $this->_behaviors = new BehaviorRegistry();
+        $this->_behaviors->setType($this);
         $this->initialize($config);
         $this->_eventManager->on($this);
         $this->dispatchEvent('Model.initialize');
@@ -393,9 +406,6 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
      */
     public function get($primaryKey, $options = [])
     {
-        // if (!$this->exists(['id' => $primaryKey]))
-        //   $primaryKey = $primaryKey . '-';
-
         $type = $this->connection()->getIndex()->getType($this->name());
         $result = $type->getDocument($primaryKey, $options);
         $class = $this->entityClass();
@@ -620,6 +630,7 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
         unset($data['id'], $data['_version']);
 
         $doc = new ElasticaDocument($id, $data);
+        $doc->setRefresh(True);
         $doc->setAutoPopulate(true);
 
         $type->addDocument($doc);
@@ -675,7 +686,8 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
         unset($data['id']);
 
         $doc = new ElasticaDocument($entity->id, $data);
-
+        $doc->setRefresh(True);
+        
         $type = $this->connection()->getIndex()->getType($this->name());
         $result = $type->deleteDocument($doc);
 
@@ -900,6 +912,80 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
         }
 
         return $events;
+    }
+
+    /**
+     * Add a behavior.
+     *
+     * Adds a behavior to this table's behavior collection. Behaviors
+     * provide an easy way to create horizontally re-usable features
+     * that can provide trait like functionality, and allow for events
+     * to be listened to.
+     *
+     * Example:
+     *
+     * Load a behavior, with some settings.
+     *
+     * ```
+     * $this->addBehavior('Tree', ['parent' => 'parentId']);
+     * ```
+     *
+     * Behaviors are generally loaded during Table::initialize().
+     *
+     * @param string $name The name of the behavior. Can be a short class reference.
+     * @param array $options The options for the behavior to use.
+     * @return $this
+     * @throws \RuntimeException If a behavior is being reloaded.
+     * @see \Cake\ORM\Behavior
+     */
+    public function addBehavior($name, array $options = [])
+    {
+        $this->_behaviors->load($name, $options);
+
+        return $this;
+    }
+
+    /**
+     * Removes a behavior from this table's behavior registry.
+     *
+     * Example:
+     *
+     * Remove a behavior from this table.
+     *
+     * ```
+     * $this->removeBehavior('Tree');
+     * ```
+     *
+     * @param string $name The alias that the behavior was added with.
+     * @return $this
+     * @see \Cake\ORM\Behavior
+     */
+    public function removeBehavior($name)
+    {
+        $this->_behaviors->unload($name);
+
+        return $this;
+    }
+
+    /**
+     * Returns the behavior registry for this table.
+     *
+     * @return \Cake\ORM\BehaviorRegistry The BehaviorRegistry instance.
+     */
+    public function behaviors()
+    {
+        return $this->_behaviors;
+    }
+
+    /**
+     * Check if a behavior with the given alias has been loaded.
+     *
+     * @param string $name The behavior alias to check.
+     * @return bool Whether or not the behavior exists.
+     */
+    public function hasBehavior($name)
+    {
+        return $this->_behaviors->has($name);
     }
 
     /**
