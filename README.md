@@ -10,7 +10,7 @@ Noticing the parent/child relations will be mapped using **[Join Field](https://
 - [x] Always set Content-Type with Http Transport
 - [x] Stability on one **Type** without extra configuration
 - [x] Mandatory fields for creating **Entities** in single **Type**
-- [ ] Supporting **behaviors** such as CounterCache, Timestamp and Tree
+- [x] Supporting **behaviors** such as Timestamp
 - [ ] Add relationships hasOne, hasMany and belongsTo using join field and **parent/child** relationship
 - [ ] Merge joins of relationships to be like contain **nested** entities
 
