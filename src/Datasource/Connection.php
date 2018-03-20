@@ -61,7 +61,7 @@ class Connection extends Client implements ConnectionInterface
         }
         $config += ['type' => '_doc'];
         if (isset($config['type'])) {
-            $this->configName = $config['type'];
+            $this->configType = $config['type'];
         }
         if (isset($config['log'])) {
             $this->logQueries((bool)$config['log']);

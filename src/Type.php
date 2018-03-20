@@ -30,7 +30,9 @@ use Cake\ORM\RulesChecker;
 use Cake\Utility\Inflector;
 use Cake\Validation\ValidatorAwareTrait;
 use Elastica\Document as ElasticaDocument;
+use Elastica\Exception\NotFoundException;
 use InvalidArgumentException;
+
 
 /**
  * Base class for mapping types in indexes.
@@ -81,6 +83,13 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
     protected $_name;
 
     /**
+     * The name of the Elastic Search type this class represents
+     *
+     * @var string
+     */
+    protected $_alias;
+
+    /**
      * The name of the class that represent a single document for this type
      *
      * @var string
@@ -116,12 +125,17 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
      */
     public function __construct(array $config = [])
     {
-        if (!empty($config['connection'])) {
-            $this->connection($config['connection']);
-        }
-
         if (!empty($config['name'])) {
             $this->name($config['name']);
+        }
+
+        $this->alias($this->name());
+        $this->name($config['connection']->configType());
+
+        $config['_alias'] = $this->getAlias();
+
+        if (!empty($config['connection'])) {
+            $this->connection($config['connection']);
         }
         $eventManager = null;
         if (isset($config['eventManager'])) {
@@ -255,30 +269,43 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
      */
     public function alias($alias = null)
     {
-        return $this->name($alias);
+      if ($alias !== null) {
+          $this->_alias = $alias;
+      }
+
+      if ($this->_alias === null) {
+          $alias = namespaceSplit(get_class($this));
+          $alias = substr(end($alias), 0, -4);
+          if (empty($alias)) {
+              $alias = '*';
+          }
+          $this->_alias = Inflector::underscore($alias);
+      }
+
+      return $this->_alias;
     }
 
     /**
-     * Sets the type name / alias.
+     * Sets the type alias.
      *
      * @param string $alias Table alias
      * @return $this
      */
     public function setAlias($alias)
     {
-        $this->name($alias);
+        $this->alias($alias);
 
         return $this;
     }
 
     /**
-     * Returns the type name / alias.
+     * Returns the type alias.
      *
      * @return string
      */
     public function getAlias()
     {
-        return $this->name();
+        return $this->alias();
     }
 
     /**
@@ -366,6 +393,9 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
      */
     public function get($primaryKey, $options = [])
     {
+        // if (!$this->exists(['id' => $primaryKey]))
+        //   $primaryKey = $primaryKey . '-';
+
         $type = $this->connection()->getIndex()->getType($this->name());
         $result = $type->getDocument($primaryKey, $options);
         $class = $this->entityClass();
@@ -377,6 +407,11 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
             'source' => $this->name(),
         ];
         $data = $result->getData();
+
+        if (!isset($data['_alias']) || $data['_alias'] !== $this->alias()) {
+            throw new NotFoundException('doc id '.$primaryKey.' not found');
+        }
+
         $data['id'] = $result->getId();
         foreach ($this->embedded() as $embed) {
             $prop = $embed->property();
@@ -395,7 +430,8 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
      */
     public function query()
     {
-        return new Query($this);
+        $query = new Query($this);
+        return $query->queryMust(['_alias' => $this->alias()], True);
     }
 
     /**
@@ -759,7 +795,7 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
     public function patchEntity(EntityInterface $entity, array $data, array $options = [])
     {
         $marshaller = $this->marshaller();
-
+        $data['_alias'] = $this->alias();
         return $marshaller->merge($entity, $data, $options);
     }
 
@@ -784,7 +820,7 @@ class Type implements RepositoryInterface, EventListenerInterface, EventDispatch
     public function patchEntities($entities, array $data, array $options = [])
     {
         $marshaller = $this->marshaller();
-
+        $data['alias'] = $this->alias();
         return $marshaller->mergeMany($entities, $data, $options);
     }
 
